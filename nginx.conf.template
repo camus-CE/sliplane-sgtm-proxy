@@ -1,0 +1,35 @@
+worker_processes auto;
+events { worker_connections 1024; }
+
+http {
+  server {
+    listen ${LISTEN_PORT};
+
+    # Healthcheck
+    location = /healthz { return 200 "ok\n"; }
+
+    # Forward everything to sGTM
+    location / {
+      proxy_pass ${UPSTREAM};
+      proxy_http_version 1.1;
+
+      # preserve host + scheme
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      # inject true client IP headers
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header CF-Connecting-IP $remote_addr;
+
+      # pass-through useful headers
+      proxy_set_header Referer $http_referer;
+      proxy_set_header User-Agent $http_user_agent;
+
+      # timeouts (safe defaults)
+      proxy_connect_timeout 5s;
+      proxy_send_timeout 15s;
+      proxy_read_timeout 15s;
+    }
+  }
+}
